@@ -9,10 +9,65 @@ import (
 func TestRead(t *testing.T) {
 	testCases := []struct {
 		filename string
-		expected Header
+		expected File
 	}{
 		{
 			filename: "./assets/test.tga",
+			expected: File{
+				Header: Header{
+					IDLength:        0,
+					ColorMapType:    0,
+					ImageType:       UncompressedRGBImage,
+					ColorMapOrigin:  0,
+					ColorMapLength:  0,
+					ColorMapDepth:   0,
+					XOrigin:         0,
+					YOrigin:         0,
+					Width:           256,
+					Height:          256,
+					BitsPerPixel:    32,
+					ImageDescriptor: 8,
+				},
+				Footer: Footer{
+					ExtensionAreaOffset:      0,
+					DeveloperDirectoryOffset: 0,
+					Signature:                [16]byte{'T', 'R', 'U', 'E', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E'},
+					Point:                    '.',
+					End:                      0x00,
+				},
+			},
+		},
+	}
+
+	for i, tc := range testCases {
+		f, err := os.Open(tc.filename)
+		if err != nil {
+			t.Fatalf("test %d: failed to open test file: %v", i+1, err)
+		}
+		defer f.Close()
+
+		got, err := Read(f)
+		if err != nil {
+			t.Fatalf("test %d: failed to Read file: %v", i+1, err)
+		}
+
+		if !reflect.DeepEqual(tc.expected, got) {
+			t.Errorf("test %d:\nexpected %+v,\nbut got %+v", i+1, tc.expected, got)
+		}
+	}
+}
+
+func TestInternalRead(t *testing.T) {
+	testCases := []struct {
+		got      any
+		filename string
+		expected any
+		config   sectionConfig
+	}{
+		{
+			got:      Header{},
+			filename: "./assets/test.tga",
+			config:   headerSection,
 			expected: Header{
 				IDLength:        0,
 				ColorMapType:    0,
@@ -29,7 +84,9 @@ func TestRead(t *testing.T) {
 			},
 		},
 		{
+			got:      Header{},
 			filename: "./assets/test2.tga",
+			config:   headerSection,
 			expected: Header{
 				IDLength:        0,
 				ColorMapType:    0,
@@ -46,7 +103,9 @@ func TestRead(t *testing.T) {
 			},
 		},
 		{
+			got:      Header{},
 			filename: "./assets/flag_t16.tga",
+			config:   headerSection,
 			expected: Header{
 				IDLength:        0,
 				ColorMapType:    0,
@@ -63,7 +122,9 @@ func TestRead(t *testing.T) {
 			},
 		},
 		{
+			got:      Header{},
 			filename: "./assets/xing_t24.tga",
+			config:   headerSection,
 			expected: Header{
 				IDLength:        0,
 				ColorMapType:    0,
@@ -79,7 +140,57 @@ func TestRead(t *testing.T) {
 				ImageDescriptor: 32,
 			},
 		},
+		{
+			got:      Footer{},
+			filename: "./assets/test.tga",
+			config:   footerSection,
+			expected: Footer{
+				ExtensionAreaOffset:      0,
+				DeveloperDirectoryOffset: 0,
+				Signature:                [16]byte{'T', 'R', 'U', 'E', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E'},
+				Point:                    '.',
+				End:                      0x00,
+			},
+		},
+		{
+			got:      Footer{},
+			filename: "./assets/test2.tga",
+			config:   footerSection,
+			expected: Footer{
+				ExtensionAreaOffset:      1450344536,
+				DeveloperDirectoryOffset: 2220323969,
+				Signature:                [16]byte{115, 87, 133, 114, 87, 131, 112, 85, 129, 111, 85, 125, 112, 87, 125, 114},
+				Point:                    90,
+				End:                      125,
+			},
+		},
+		{
+			got:      Footer{},
+			filename: "./assets/flag_t16.tga",
+			config:   footerSection,
+			expected: Footer{
+				ExtensionAreaOffset:      2145419232,
+				DeveloperDirectoryOffset: 2082438175,
+				Signature:                [16]byte{31, 124, 31, 124, 31, 124, 31, 124, 31, 124, 31, 124, 31, 124, 31, 124},
+				Point:                    31,
+				End:                      124,
+			},
+		},
+		{
+			got:      Footer{},
+			filename: "./assets/xing_t24.tga",
+			config:   footerSection,
+			expected: Footer{
+				ExtensionAreaOffset:      1350363959,
+				DeveloperDirectoryOffset: 3328740322,
+				Signature:                [16]byte{128, 101, 146, 82, 56, 100, 94, 82, 86, 51, 49, 32, 51, 49, 32, 49},
+				Point:                    52,
+				End:                      34,
+			},
+		},
 	}
+
+	_ = testCases
 
 	for i, tc := range testCases {
 		f, err := os.Open(tc.filename)
@@ -88,13 +199,23 @@ func TestRead(t *testing.T) {
 		}
 		defer f.Close()
 
-		header, err := Read(f)
-		if err != nil {
-			t.Errorf("failed to read test file: %v", err)
+		switch tc.got.(type) {
+		case Header:
+			var got Header
+			err = read(f, tc.config, &got)
+			tc.got = got
+		case Footer:
+			var got Footer
+			err = read(f, tc.config, &got)
+			tc.got = got
 		}
 
-		if !reflect.DeepEqual(tc.expected, header) {
-			t.Errorf("\nexpected %+v, \nbut got  %+v", tc.expected, header)
+		if err != nil {
+			t.Fatalf("failed to read test file: %v", err)
+		}
+
+		if !reflect.DeepEqual(tc.expected, tc.got) {
+			t.Errorf("file `%s`:\nexpected %+v, \nbut got  %+v", tc.filename, tc.expected, tc.got)
 		}
 	}
 }

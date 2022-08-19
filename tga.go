@@ -29,10 +29,15 @@ const (
 	Targa32 TargaSize = 32
 )
 
-const (
-	HeaderLen = 18
-	FooterLen = 26
-)
+type File struct {
+	Header Header
+	Image  Image
+	Footer Footer
+}
+
+func (f File) Version() Version {
+	return f.Footer.version()
+}
 
 type ImageOrigin int
 
@@ -77,12 +82,18 @@ type Header struct {
 	ImageDescriptor ImageDescriptor // byte
 }
 
-func (h Header) HasImageID() bool {
+func (h Header) HasImageIDField() bool {
 	return h.IDLength > 0
 }
 
 func (h Header) HasColorMap() bool {
 	return h.ColorMapType == 1
+}
+
+type Image struct {
+	ID       []byte
+	ColorMap []byte
+	Data     []byte
 }
 
 type Version int
@@ -104,7 +115,8 @@ type Footer struct {
 	End                      byte     //      Byte 25:  Binary zero string terminator (0x00)
 }
 
-func (f Footer) Version() Version {
+// TODO: ensure its needed here, and not in File struct
+func (f Footer) version() Version {
 	if string(f.Signature[:]) == "TRUEVISION-XFILE" {
 		return NewTGA
 	}
@@ -112,47 +124,86 @@ func (f Footer) Version() Version {
 	return OriginalTGA
 }
 
-func Read(rs io.ReadSeeker) (Header, error) {
-	var (
-		h Header
-		f Footer
-	)
+type sectionConfig struct {
+	length int64
+	offset int64
+	whence int
+}
 
-	// Read footer
-	_, err := rs.Seek(-FooterLen, io.SeekEnd)
+func newSection(length int, offset int, whence int) sectionConfig {
+	return sectionConfig{
+		length: int64(length),
+		offset: int64(offset),
+		whence: whence,
+	}
+}
+
+var (
+	headerSection = newSection(18, 0, io.SeekStart)
+	footerSection = newSection(26, -26, io.SeekEnd)
+)
+
+func read(rs io.ReadSeeker, config sectionConfig, data any) error {
+	r := bytes.NewBuffer(nil)
+
+	_, err := rs.Seek(config.offset, int(config.whence))
 	if err != nil {
-		return h, fmt.Errorf("tga.Read: failed to seek io.Seeker: %v", err)
+		return fmt.Errorf("failed to seek file: %v", err)
 	}
 
-	rFooter := bytes.NewBuffer(nil)
+	// ensure reader is always in the beginning of the file
+	defer func() {
+		if config.offset != 0 && config.whence != io.SeekStart {
+			rs.Seek(0, io.SeekStart)
+		}
+	}()
 
-	_, err = io.Copy(rFooter, rs)
+	_, err = io.CopyN(r, rs, config.length)
 	if err != nil {
-		return h, fmt.Errorf("tga.Read: failed to copy from io.Reader: %v", err)
+		return fmt.Errorf("failed to io.CopyN bytes: %v", err)
 	}
 
-	err = binary.Read(rFooter, binary.LittleEndian, &f)
+	return binary.Read(r, binary.LittleEndian, data)
+}
+
+func Read(rs io.ReadSeeker) (File, error) {
+	var file File
+
+	err := read(rs, footerSection, &file.Footer)
 	if err != nil {
-		return h, fmt.Errorf("tga.Read: failed to decode binary into footer: %v", err)
+		return file, fmt.Errorf("tga.Read: failed to read binary data into Footer: %v", err)
 	}
 
-	_, err = rs.Seek(0, io.SeekStart)
+	err = read(rs, headerSection, &file.Header)
 	if err != nil {
-		return h, fmt.Errorf("tga.Read: failed to seek io.Seeker: %v", err)
+		return file, fmt.Errorf("tga.Read: failed to read binary data into Header: %v", err)
 	}
 
-	rHeader := bytes.NewBuffer(nil)
-
-	_, err = io.CopyN(rHeader, rs, HeaderLen)
-	if err != nil {
-		return h, fmt.Errorf("tga.Read: failed to copy from io.Reader: %v", err)
+	file.Image = Image{
+		ID:       make([]byte, file.Header.IDLength),
+		ColorMap: []byte{},
+		Data:     make([]byte, int64(file.Header.Width)*int64(file.Header.Height)),
 	}
 
-	err = binary.Read(rHeader, binary.LittleEndian, &h)
+	// Read ImageID (CopyN of Header.IDLength)
+	err = read(rs,
+		newSection(len(file.Image.ID), int(headerSection.length), io.SeekStart),
+		file.Image.ID)
+	if err != nil {
+		return file, fmt.Errorf("tga.Read: failed to read binary data into ImageData: %v", err)
+	}
 
-	// TODO: handle ColorMapType
+	// Read ColorMapData (CopyN of ???)
 
-	return h, err
+	// Read ImageData (CopyN of Header.Width * Header.Height)
+	err = read(rs,
+		newSection(len(file.Image.Data), int(headerSection.length)+len(file.Image.Data), io.SeekStart),
+		file.Image.Data)
+	if err != nil {
+		return file, fmt.Errorf("tga.Read: failed to read binary data info Image.Data: %v", err)
+	}
+
+	return file, err
 }
 
 // from: http://www.paulbourke.net/dataformats/tga/

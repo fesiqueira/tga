@@ -27,11 +27,14 @@ const (
 	Targa32 TargaSize = 32
 )
 
-const HeaderLen = 18
+const (
+	HeaderLen = 18
+	FooterLen = 26
+)
 
 type Header struct {
 	IDLength        byte      // byte
-	ColorMapType    byte      // byte
+	ColorMapType    bool      // byte
 	DataTypeCode    DataType  // byte
 	ColorMapOrigin  uint16    // 2 bytes, little-endian
 	ColorMapLength  uint16    // 2 bytes, little-endian
@@ -44,16 +47,72 @@ type Header struct {
 	ImageDescriptor byte      // byte
 }
 
-func Read(r io.Reader) (Header, error) {
-	var h Header
+type Version int
+
+const (
+	OriginalTGA Version = iota
+	NewTGA
+)
+
+func (v Version) String() string {
+	return [...]string{"OriginalTGA", "NewTGA"}[v]
+}
+
+type Footer struct {
+	ExtensionAreaOffset      uint32   //      Bytes 0-3: The Extension Area Offset
+	DeveloperDirectoryOffset uint32   //      Bytes 4-7: The Developer Directory Offset
+	Signature                [16]byte //      Bytes 8-23: The Signature
+	Point                    [1]byte  //      Byte 24:   ASCII Character “.”
+	End                      byte     //      Byte 25:  Binary zero string terminator (0x00)
+}
+
+func (f Footer) Version() Version {
+	if string(f.Signature[:]) == "TRUEVISION-XFILE" {
+		return NewTGA
+	}
+
+	return OriginalTGA
+}
+
+func Read(rs io.ReadSeeker) (Header, error) {
+	var (
+		h Header
+		f Footer
+	)
+
+	// Read footer
+	_, err := rs.Seek(-FooterLen, io.SeekEnd)
+	if err != nil {
+		return h, fmt.Errorf("tga.Read: failed to seek io.Seeker: %v", err)
+	}
+
+	rFooter := bytes.NewBuffer(nil)
+
+	_, err = io.Copy(rFooter, rs)
+	if err != nil {
+		return h, fmt.Errorf("tga.Read: failed to copy from io.Reader: %v", err)
+	}
+
+	err = binary.Read(rFooter, binary.LittleEndian, &f)
+	if err != nil {
+		return h, fmt.Errorf("tga.Read: failed to decode binary into footer: %v", err)
+	}
+
+	_, err = rs.Seek(0, io.SeekStart)
+	if err != nil {
+		return h, fmt.Errorf("tga.Read: failed to seek io.Seeker: %v", err)
+	}
+
 	rHeader := bytes.NewBuffer(nil)
 
-	_, err := io.Copy(rHeader, r)
+	_, err = io.CopyN(rHeader, rs, HeaderLen)
 	if err != nil {
 		return h, fmt.Errorf("tga.Read: failed to copy from io.Reader: %v", err)
 	}
 
 	err = binary.Read(rHeader, binary.LittleEndian, &h)
+
+	// TODO: handle ColorMapType
 
 	return h, err
 }

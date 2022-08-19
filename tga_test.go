@@ -15,7 +15,7 @@ func TestRead(t *testing.T) {
 			filename: "./assets/test.tga",
 			expected: Header{
 				IDLength:        0,
-				ColorMapType:    0,
+				ColorMapType:    false,
 				DataTypeCode:    UncompressedRGBImage,
 				ColorMapOrigin:  0,
 				ColorMapLength:  0,
@@ -32,7 +32,7 @@ func TestRead(t *testing.T) {
 			filename: "./assets/test2.tga",
 			expected: Header{
 				IDLength:        0,
-				ColorMapType:    0,
+				ColorMapType:    false,
 				DataTypeCode:    UncompressedRGBImage,
 				ColorMapOrigin:  0,
 				ColorMapLength:  0,
@@ -49,7 +49,7 @@ func TestRead(t *testing.T) {
 			filename: "./assets/flag_t16.tga",
 			expected: Header{
 				IDLength:        0,
-				ColorMapType:    0,
+				ColorMapType:    false,
 				DataTypeCode:    UncompressedRGBImage,
 				ColorMapOrigin:  0,
 				ColorMapLength:  0,
@@ -66,7 +66,7 @@ func TestRead(t *testing.T) {
 			filename: "./assets/xing_t24.tga",
 			expected: Header{
 				IDLength:        0,
-				ColorMapType:    0,
+				ColorMapType:    false,
 				DataTypeCode:    UncompressedRGBImage,
 				ColorMapOrigin:  0,
 				ColorMapLength:  0,

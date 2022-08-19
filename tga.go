@@ -1,3 +1,5 @@
+// Official specification: https://www.dca.fee.unicamp.br/~martino/disciplinas/ea978/tgaffs.pdf
+
 package tga
 
 import (
@@ -7,10 +9,10 @@ import (
 	"io"
 )
 
-type DataType byte
+type ImageType byte
 
 const (
-	NoImage                          DataType   = iota // no image data is present
+	NoImage                          ImageType  = iota // no image data is present
 	UncompressedColorMappedImage                       // 1 uncompressed color-mapped image
 	UncompressedRGBImage                               // 2 uncompressed true-color image
 	UncompressedGrayscaleImage                         // 3 uncompressed black-and-white (grayscale) image
@@ -32,19 +34,55 @@ const (
 	FooterLen = 26
 )
 
+type ImageOrigin int
+
+const (
+	BottomLeft ImageOrigin = iota
+	BottomRight
+	TopLeft
+	TopRight
+)
+
+func (o ImageOrigin) String() string {
+	return [...]string{"BottomLeft", "BottomRight", "TopLeft", "TopRight"}[o]
+}
+
+type ImageDescriptor byte
+
+func (id ImageDescriptor) ImageOrigin() ImageOrigin {
+	switch {
+	case id&48 == 48:
+		return TopRight
+	case id&32 == 32:
+		return TopLeft
+	case id&16 == 16:
+		return BottomRight
+	default:
+		return BottomLeft
+	}
+}
+
 type Header struct {
-	IDLength        byte      // byte
-	ColorMapType    bool      // byte
-	DataTypeCode    DataType  // byte
-	ColorMapOrigin  uint16    // 2 bytes, little-endian
-	ColorMapLength  uint16    // 2 bytes, little-endian
-	ColorMapDepth   TargaSize // byte
-	XOrigin         uint16    // 2 bytes, little-endian
-	YOrigin         uint16    // 2 bytes, little-endian
-	Width           uint16    // 2 bytes, little-endian
-	Height          uint16    // 2 bytes, little-endian
-	BitsPerPixel    byte      // byte
-	ImageDescriptor byte      // byte
+	IDLength        byte            // byte
+	ColorMapType    byte            // byte
+	ImageType       ImageType       // byte
+	ColorMapOrigin  uint16          // 2 bytes, little-endian
+	ColorMapLength  uint16          // 2 bytes, little-endian
+	ColorMapDepth   TargaSize       // byte
+	XOrigin         uint16          // 2 bytes, little-endian
+	YOrigin         uint16          // 2 bytes, little-endian
+	Width           uint16          // 2 bytes, little-endian
+	Height          uint16          // 2 bytes, little-endian
+	BitsPerPixel    byte            // byte
+	ImageDescriptor ImageDescriptor // byte
+}
+
+func (h Header) HasImageID() bool {
+	return h.IDLength > 0
+}
+
+func (h Header) HasColorMap() bool {
+	return h.ColorMapType == 1
 }
 
 type Version int
@@ -62,7 +100,7 @@ type Footer struct {
 	ExtensionAreaOffset      uint32   //      Bytes 0-3: The Extension Area Offset
 	DeveloperDirectoryOffset uint32   //      Bytes 4-7: The Developer Directory Offset
 	Signature                [16]byte //      Bytes 8-23: The Signature
-	Point                    [1]byte  //      Byte 24:   ASCII Character “.”
+	Point                    byte     //      Byte 24:   ASCII Character “.”
 	End                      byte     //      Byte 25:  Binary zero string terminator (0x00)
 }
 

@@ -1,18 +1,67 @@
 package tga
 
 import (
+	"bytes"
+	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"testing"
 )
 
+type tgaFileMock struct {
+	r       *bytes.Buffer
+	content []byte
+	offset  int64
+}
+
+func newTGAMock(header, image, footer []byte) *tgaFileMock {
+	buf := make([]byte, 0)
+
+	buf = append(buf, header...)
+	buf = append(buf, image...)
+	buf = append(buf, footer...)
+
+	return &tgaFileMock{
+		r:       bytes.NewBuffer(buf),
+		content: buf,
+	}
+}
+
+func (fm *tgaFileMock) Read(buf []byte) (int, error) {
+	return fm.r.Read(buf)
+}
+
+func (fm *tgaFileMock) Seek(offset int64, whence int) (int64, error) {
+	var err error
+
+	switch whence {
+	case io.SeekStart:
+		if offset > 0 {
+			offset--
+		}
+
+		fm.offset = offset
+	case io.SeekCurrent:
+		fm.offset += offset
+	case io.SeekEnd:
+		fm.offset = int64(len(fm.content)) + offset
+	default:
+		err = fmt.Errorf("unknown whence: `%v`", whence)
+	}
+
+	fm.r = bytes.NewBuffer(fm.content[fm.offset:len(fm.content)])
+
+	return fm.offset, err
+}
+
 func TestRead(t *testing.T) {
 	testCases := []struct {
-		filename string
+		rs       io.ReadSeeker
 		expected File
 	}{
 		{
-			filename: "./assets/test.tga",
+			rs: newTGAMock([]byte{0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0}, []byte{12}, []byte{0, 0, 0, 0, 0, 0, 0, 0, 'T', 'R', 'U', 'E', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E', '.', 0x00}),
 			expected: File{
 				Header: Header{
 					IDLength:        0,
@@ -23,10 +72,15 @@ func TestRead(t *testing.T) {
 					ColorMapDepth:   0,
 					XOrigin:         0,
 					YOrigin:         0,
-					Width:           256,
-					Height:          256,
-					BitsPerPixel:    32,
-					ImageDescriptor: 8,
+					Width:           1,
+					Height:          1,
+					BitsPerPixel:    0,
+					ImageDescriptor: 0,
+				},
+				Image: Image{
+					ID:       []byte{},
+					ColorMap: []byte{},
+					Data:     []byte{12},
 				},
 				Footer: Footer{
 					ExtensionAreaOffset:      0,
@@ -40,13 +94,7 @@ func TestRead(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		f, err := os.Open(tc.filename)
-		if err != nil {
-			t.Fatalf("test %d: failed to open test file: %v", i+1, err)
-		}
-		defer f.Close()
-
-		got, err := Read(f)
+		got, err := Read(tc.rs)
 		if err != nil {
 			t.Fatalf("test %d: failed to Read file: %v", i+1, err)
 		}

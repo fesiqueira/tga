@@ -2,66 +2,22 @@ package tga
 
 import (
 	"bytes"
-	"fmt"
-	"io"
 	"os"
 	"reflect"
 	"testing"
 )
 
-type tgaFileMock struct {
-	r       *bytes.Buffer
-	content []byte
-	offset  int64
-}
-
-func newTGAMock(header, image, footer []byte) *tgaFileMock {
-	buf := make([]byte, 0)
-
-	buf = append(buf, header...)
-	buf = append(buf, image...)
-	buf = append(buf, footer...)
-
-	return &tgaFileMock{
-		r:       bytes.NewBuffer(buf),
-		content: buf,
-	}
-}
-
-func (fm *tgaFileMock) Read(buf []byte) (int, error) {
-	return fm.r.Read(buf)
-}
-
-func (fm *tgaFileMock) Seek(offset int64, whence int) (int64, error) {
-	var err error
-
-	switch whence {
-	case io.SeekStart:
-		if offset > 0 {
-			offset--
-		}
-
-		fm.offset = offset
-	case io.SeekCurrent:
-		fm.offset += offset
-	case io.SeekEnd:
-		fm.offset = int64(len(fm.content)) + offset
-	default:
-		err = fmt.Errorf("unknown whence: `%v`", whence)
-	}
-
-	fm.r = bytes.NewBuffer(fm.content[fm.offset:len(fm.content)])
-
-	return fm.offset, err
-}
-
 func TestRead(t *testing.T) {
 	testCases := []struct {
-		rs       io.ReadSeeker
+		sections [][]byte
 		expected File
 	}{
 		{
-			rs: newTGAMock([]byte{0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0}, []byte{12}, []byte{0, 0, 0, 0, 0, 0, 0, 0, 'T', 'R', 'U', 'E', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E', '.', 0x00}),
+			sections: [][]byte{
+				{0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0},
+				{12},
+				{0, 0, 0, 0, 0, 0, 0, 0, 'T', 'R', 'U', 'E', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E', '.', 0x00},
+			},
 			expected: File{
 				Header: Header{
 					IDLength:        0,
@@ -94,7 +50,9 @@ func TestRead(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		got, err := Read(tc.rs)
+		input := bytes.NewReader(bytes.Join(tc.sections, nil))
+
+		got, err := Read(input)
 		if err != nil {
 			t.Fatalf("test %d: failed to Read file: %v", i+1, err)
 		}

@@ -197,7 +197,7 @@ func Read(rs io.ReadSeeker) (File, error) {
 
 	// Read ImageData (CopyN of Header.Width * Header.Height)
 	err = read(rs,
-		newSection(len(file.Image.Data), int(headerSection.length)+len(file.Image.Data), io.SeekStart),
+		newSection(len(file.Image.Data), int(headerSection.length)+len(file.Image.ID), io.SeekStart),
 		file.Image.Data)
 	if err != nil {
 		return file, fmt.Errorf("tga.Read: failed to read binary data info Image.Data: %v", err)

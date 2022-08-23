@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"image"
+	"image/color"
 	"io"
 )
 
@@ -65,6 +67,26 @@ func (f File) PixelAt(x, y int) []byte {
 	begin := y*int(f.Header.Width) + x
 
 	return f.Image.Data[begin : begin+bytesPerPixel]
+}
+
+// RGBA only supports Targa 24 and Targa 32 for now
+func (f File) RGBA() *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, int(f.Header.Width), int(f.Header.Height)))
+
+	for y := 0; y < img.Bounds().Max.Y; y++ {
+		for x := 0; x < img.Bounds().Max.X; x++ {
+			pixel := f.PixelAt(x, y)
+
+			img.Set(x, y, color.RGBA{
+				R: pixel[2],
+				G: pixel[1],
+				B: pixel[0],
+				A: 255,
+			})
+		}
+	}
+
+	return img
 }
 
 func (f File) Version() Version {

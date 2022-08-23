@@ -90,6 +90,10 @@ func (h Header) HasColorMap() bool {
 	return h.ColorMapType == 1
 }
 
+func (h Header) ImageBytes() int {
+	return int(h.Width) * int(h.Height) * int(h.BitsPerPixel) / 8
+}
+
 type Image struct {
 	ID       []byte
 	ColorMap []byte
@@ -182,7 +186,7 @@ func Read(rs io.ReadSeeker) (File, error) {
 	file.Image = Image{
 		ID:       make([]byte, file.Header.IDLength),
 		ColorMap: []byte{},
-		Data:     make([]byte, int64(file.Header.Width)*int64(file.Header.Height)*int64(file.Header.BitsPerPixel)/8),
+		Data:     make([]byte, file.Header.ImageBytes()),
 	}
 
 	// Read ImageID (CopyN of Header.IDLength)

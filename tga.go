@@ -35,6 +35,38 @@ type File struct {
 	Footer Footer
 }
 
+func (f File) Pixels() [][]byte {
+	pixels := make([][]byte, 0)
+
+	for i := 0; i < f.Header.ImageBytes(); i += f.Header.BytesPerPixel() {
+		end := i + f.Header.BytesPerPixel()
+
+		if end > f.Header.ImageBytes() {
+			end = f.Header.ImageBytes()
+		}
+
+		pixels = append(pixels, f.Image.Data[i:end])
+	}
+
+	return pixels
+}
+
+func (f File) PixelAt(x, y int) []byte {
+	if x >= int(f.Header.Width) || y >= int(f.Header.Height) {
+		return nil
+	}
+
+	bytesPerPixel := f.Header.BytesPerPixel()
+
+	x = x * bytesPerPixel
+	y = y * bytesPerPixel
+
+	// row * width + column
+	begin := y*int(f.Header.Width) + x
+
+	return f.Image.Data[begin : begin+bytesPerPixel]
+}
+
 func (f File) Version() Version {
 	return f.Footer.version()
 }
@@ -90,8 +122,12 @@ func (h Header) HasColorMap() bool {
 	return h.ColorMapType == 1
 }
 
+func (h Header) BytesPerPixel() int {
+	return int(h.BitsPerPixel) / 8
+}
+
 func (h Header) ImageBytes() int {
-	return int(h.Width) * int(h.Height) * int(h.BitsPerPixel) / 8
+	return int(h.Width) * int(h.Height) * h.BytesPerPixel()
 }
 
 type Image struct {

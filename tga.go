@@ -182,7 +182,7 @@ func Read(rs io.ReadSeeker) (File, error) {
 	file.Image = Image{
 		ID:       make([]byte, file.Header.IDLength),
 		ColorMap: []byte{},
-		Data:     make([]byte, int64(file.Header.Width)*int64(file.Header.Height)),
+		Data:     make([]byte, int64(file.Header.Width)*int64(file.Header.Height)*int64(file.Header.BitsPerPixel)/8),
 	}
 
 	// Read ImageID (CopyN of Header.IDLength)

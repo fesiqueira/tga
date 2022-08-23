@@ -14,8 +14,8 @@ func TestRead(t *testing.T) {
 	}{
 		{
 			sections: [][]byte{
-				{0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0},
-				{12},
+				{0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 16, 0},
+				{12, 12},
 				{0, 0, 0, 0, 0, 0, 0, 0, 'T', 'R', 'U', 'E', 'V', 'I', 'S', 'I', 'O', 'N', '-', 'X', 'F', 'I', 'L', 'E', '.', 0x00},
 			},
 			expected: File{
@@ -30,13 +30,13 @@ func TestRead(t *testing.T) {
 					YOrigin:         0,
 					Width:           1,
 					Height:          1,
-					BitsPerPixel:    0,
+					BitsPerPixel:    16,
 					ImageDescriptor: 0,
 				},
 				Image: Image{
 					ID:       []byte{},
 					ColorMap: []byte{},
-					Data:     []byte{12},
+					Data:     []byte{12, 12},
 				},
 				Footer: Footer{
 					ExtensionAreaOffset:      0,

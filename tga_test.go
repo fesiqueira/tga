@@ -72,7 +72,7 @@ func TestInternalRead(t *testing.T) {
 	}{
 		{
 			got:      Header{},
-			filename: "./assets/test.tga",
+			filename: "./testdata/test.tga",
 			config:   headerSection,
 			expected: Header{
 				IDLength:        0,
@@ -91,7 +91,7 @@ func TestInternalRead(t *testing.T) {
 		},
 		{
 			got:      Header{},
-			filename: "./assets/test2.tga",
+			filename: "./testdata/test2.tga",
 			config:   headerSection,
 			expected: Header{
 				IDLength:        0,
@@ -110,7 +110,7 @@ func TestInternalRead(t *testing.T) {
 		},
 		{
 			got:      Header{},
-			filename: "./assets/flag_t16.tga",
+			filename: "./testdata/flag_t16.tga",
 			config:   headerSection,
 			expected: Header{
 				IDLength:        0,
@@ -129,7 +129,7 @@ func TestInternalRead(t *testing.T) {
 		},
 		{
 			got:      Header{},
-			filename: "./assets/xing_t24.tga",
+			filename: "./testdata/xing_t24.tga",
 			config:   headerSection,
 			expected: Header{
 				IDLength:        0,
@@ -148,7 +148,7 @@ func TestInternalRead(t *testing.T) {
 		},
 		{
 			got:      Footer{},
-			filename: "./assets/test.tga",
+			filename: "./testdata/test.tga",
 			config:   footerSection,
 			expected: Footer{
 				ExtensionAreaOffset:      0,
@@ -160,7 +160,7 @@ func TestInternalRead(t *testing.T) {
 		},
 		{
 			got:      Footer{},
-			filename: "./assets/test2.tga",
+			filename: "./testdata/test2.tga",
 			config:   footerSection,
 			expected: Footer{
 				ExtensionAreaOffset:      1450344536,
@@ -172,7 +172,7 @@ func TestInternalRead(t *testing.T) {
 		},
 		{
 			got:      Footer{},
-			filename: "./assets/flag_t16.tga",
+			filename: "./testdata/flag_t16.tga",
 			config:   footerSection,
 			expected: Footer{
 				ExtensionAreaOffset:      2145419232,
@@ -184,7 +184,7 @@ func TestInternalRead(t *testing.T) {
 		},
 		{
 			got:      Footer{},
-			filename: "./assets/xing_t24.tga",
+			filename: "./testdata/xing_t24.tga",
 			config:   footerSection,
 			expected: Footer{
 				ExtensionAreaOffset:      1350363959,

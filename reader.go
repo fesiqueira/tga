@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
+	"image/color"
 	"io"
 )
 
@@ -54,12 +55,72 @@ func (d *decoder) decode(r io.Reader) (image.Image, error) {
 		return nil, err
 	}
 
+	var img image.Image
+
 	switch d.header.ImageType {
 	case UncompressedRGBImage:
-		return image.NewRGBA(image.Rect(0, 0, 0, 0)), nil
+		img = image.NewRGBA(d.header.Rect())
 	default:
 		return nil, fmt.Errorf("image type '%d' not supported", d.header.ImageType)
 	}
+
+	switch d.header.ImageDescriptor.ImageOrigin() {
+	case BottomLeft:
+		for y := 0; y < img.Bounds().Max.Y; y++ {
+			for x := 0; x < img.Bounds().Max.X; x++ {
+				pixel := d.pixelAt(x, img.Bounds().Max.Y-y-1)
+
+				img.(*image.RGBA).Set(x, y, color.RGBA{
+					R: pixel[2],
+					G: pixel[1],
+					B: pixel[0],
+					A: 255,
+				})
+			}
+		}
+	case TopLeft:
+		for y := 0; y < img.Bounds().Max.Y; y++ {
+			for x := 0; x < img.Bounds().Max.X; x++ {
+				pixel := d.pixelAt(x, y)
+
+				img.(*image.RGBA).Set(x, y, color.RGBA{
+					R: pixel[2],
+					G: pixel[1],
+					B: pixel[0],
+					A: 255,
+				})
+			}
+		}
+	case TopRight:
+		for y := 0; y < img.Bounds().Max.Y; y++ {
+			for x := 0; x < img.Bounds().Max.X; x++ {
+				pixel := d.pixelAt(img.Bounds().Max.X-x, y)
+
+				img.(*image.RGBA).Set(x, y, color.RGBA{
+					R: pixel[2],
+					G: pixel[1],
+					B: pixel[0],
+					A: 255,
+				})
+			}
+		}
+	case BottomRight:
+		for y := 0; y < img.Bounds().Max.Y; y++ {
+			for x := 0; x < img.Bounds().Max.X; x++ {
+				pixel := d.pixelAt(img.Bounds().Max.X-x, img.Bounds().Max.Y-y)
+
+				img.(*image.RGBA).Set(x, y, color.RGBA{
+					R: pixel[2],
+					G: pixel[1],
+					B: pixel[0],
+					A: 255,
+				})
+			}
+		}
+
+	}
+
+	return img, nil
 }
 
 func (d *decoder) read(config sectionConfig, data any) error {
@@ -83,6 +144,23 @@ func (d *decoder) read(config sectionConfig, data any) error {
 	}
 
 	return binary.Read(r, binary.LittleEndian, data)
+}
+
+// TODO: return a color where all colors are already filled
+func (d decoder) pixelAt(x, y int) []byte {
+	if x >= int(d.header.Width) || y >= int(d.header.Height) {
+		return nil
+	}
+
+	bytesPerPixel := d.header.BytesPerPixel()
+
+	x = x * bytesPerPixel
+	y = y * bytesPerPixel
+
+	// row * width + column
+	begin := y*int(d.header.Width) + x
+
+	return d.image.Data[begin : begin+bytesPerPixel]
 }
 
 func Decode(r io.Reader) (image.Image, error) {

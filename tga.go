@@ -136,6 +136,10 @@ type Header struct {
 	ImageDescriptor ImageDescriptor // byte
 }
 
+func (h Header) Rect() image.Rectangle {
+	return image.Rect(0, 0, int(h.Width), int(h.Height))
+}
+
 func (h Header) HasImageIDField() bool {
 	return h.IDLength > 0
 }
